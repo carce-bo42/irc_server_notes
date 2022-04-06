@@ -9,10 +9,7 @@ está en castellano porque para hacerlo en inglés ya estan las notas que refere
 
 ## STRUCTS
 
-Un socket es simplemente un file descriptor. Tiene un int asociado como
-cualquier otro fd, pero tiene la particularidad de que para
-escribir/leer a/de él, es muy recomendable usar send/recv que no
-write/read. Se entenderá más adelante por qué.
+Un socket es simplemente un file descriptor. Tiene un int asociado como cualquier otro fd, pero tiene la particularidad de que para escribir/leer a/de él, es muy recomendable usar send/recv que no write/read. Se entenderá más adelante por qué.
 
 La siguiente estructura se usa para tener a mano las socket address structs a la hora de usarlas secuentemente. Se llama struct addrinfo, struct addrinfo lector, lector struct addrinfo.
 ```
@@ -27,25 +24,10 @@ struct addrinfo {
     char            *ai_canonname; // full canonical hostname
 
     struct addrinfo *ai_next;      // linked list, next node
-};
-    (sin stands for socket internet).
-
-    sin_zero es para igualar el tamaño de esta estructura al de 
-    struct sockaddr, así que debería hacerse un memset a ceros de sus 8 bytes.
-    -----------------------------
-
-    ----- STRUCT IN_ADDR ---------
-    struct in_addr es, por razones históricas:
-
-    struct in_addr {
-        uint32_t s_addr; // that's a 32-bit int (4 bytes)
-    };
-    ------------------------------
-
-------------------- 
+}; 
 ```
 
-Donde structr sockaddr es:
+Donde `struct sockaddr` es:
 
 ```
     struct sockaddr {
@@ -54,7 +36,7 @@ Donde structr sockaddr es:
     };
 ```
 
-Y esta struct sockaddr puede usarse como struct sockaddr_in y viceversa ('sin' viene de socket internet). 
+Y esta `struct sockaddr` puede usarse como `struct sockaddr_in` y viceversa ('sin' viene de socket internet). 
 
 ```
     // (IPv4 only--see struct sockaddr_in6 for IPv6)
@@ -66,7 +48,7 @@ Y esta struct sockaddr puede usarse como struct sockaddr_in y viceversa ('sin' v
     };
 ```
 
-sin_zero es para igualar el tamaño de esta estructura al de struct sockaddr, así que debería hacerse un memset a ceros de sus 8 bytes. Esto que parece tan raro es coherente con el "usarse como" que he dicho antes. Con ello, me refiero a que este código es perfectamente válido, y es en parte gracias a este sin_zero[8]:
+Puede verse que struct sockaddr_in tiene todo mejor localizado, y por tanto es la que se recomienda utilizar. `sin_zero[8]` es para igualar el tamaño de esta estructura al de `struct sockaddr`, así que debería hacerse un memset a ceros de sus 8 bytes. Esto que parece tan raro es coherente con el "usarse como" que he dicho antes. Con ello, me refiero a que este código es perfectamente válido, y es en parte gracias a este `sin_zero[8]`:
 
 ```
     struct addrinfo *servinfo;
@@ -75,8 +57,15 @@ sin_zero es para igualar el tamaño de esta estructura al de struct sockaddr, as
     printf("addr_in : [%s]\n", inet_ntoa(addr_in->sin_addr));
 ```
 
-El procedimiento a seguir es rellenar addrinfo con lo que necesitemos, y
-después llamar a getaddrinfo():
+Volviendo a los elementos en `struct sockaddr_in`, que se sepa que `struct addr_in`es simplemente un 4-byte int. Por qué? Razones históricas.
+
+```
+    struct in_addr {
+        uint32_t s_addr; // that's a 32-bit int (4 bytes)
+    };
+```
+
+El procedimiento a seguir es rellenar una `struct addrinfo` con lo que necesitemos, y después llamar a getaddrinfo() para que nos complete otra estructura del mismo tipo pero con más información.
 
 ```
 int getaddrinfo(const char *restrict node, const char *restrict service,
@@ -84,8 +73,9 @@ int getaddrinfo(const char *restrict node, const char *restrict service,
                 struct addrinfo **restrict res);
 ```
 
-node: "www.example.com" o dirección ip. Aquí se le debería poner el hostname, obtenido a través de gethostname().
-service: el número de puerto en el que queremos el socket. Literalmente enchufar "6667" y la función se encarga del resto.
+*node*: "www.example.com" o dirección ip. Aquí se le debería poner el hostname, obtenido a través de gethostname().
+
+*service*: el número de puerto en el que queremos el socket. Literalmente enchufar "6667" y la función se encarga del resto. 
 
 Descripción: Aloja un puntero a una nueva struct addrinfo con un node por direccion válida del host que le pasemos, en el puerto que le pasemos. Devuelve 0 si todo va bien. 
 
