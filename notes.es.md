@@ -1,11 +1,13 @@
-La siguiente información aplica para IPv4, y algunas cosas también para IPv6.
+**Disclaimer**: La siguiente información aplica para IPv4, y algunas cosas también para IPv6.
 Pero yo no usaría estas notas para hacer nada en IPv6, si acaso referenciar
-el documento del que salen estas notas:
-http://beej.us/guide/bgnet/html/
+el [documento](http://beej.us/guide/bgnet/html/) del que salen estas notas.
+Cualquier suggestion es bienvenido, recordermos: escribo esto para tener un sitio
+al que venir cuando no tenga ni idea de qué hace mi servidor irc. También
+está en castellano porque para hacerlo en inglés ya estan las notas que referencio.
 
-                      I N T R O D U C C I O N 
+                    #  I N T R O D U C C I O N 
 
-STRUCTS:
+##STRUCTS:
 
 Un socket es simplemente un file descriptor. Tiene un int asociado como
 cualquier otro fd, pero tiene la particularidad de que para
@@ -14,9 +16,8 @@ write/read. Se entenderá más adelante por qué.
 
 La siguiente estructura se usa para tener a mano las socket address 
 structs a la hora de usarlas secuentemente.
-
+```
 --- STRUCT ADDRINFO -----
-
 struct addrinfo {
     int              ai_flags;     // AI_PASSIVE, AI_CANONNAME, etc.
     int              ai_family;    // AF_INET, AF_INET6, AF_UNSPEC
@@ -64,9 +65,10 @@ struct addrinfo {
     ------------------------------
 
 ------------------- 
+```
 
-*** El procedimiento a seguir es rellenar addrinfo con lo que necesitemos, y
-*** después llamar a getaddrinfo():
+El procedimiento a seguir es rellenar addrinfo con lo que necesitemos, y
+después llamar a getaddrinfo():
 
 int getaddrinfo(const char *restrict node, const char *restrict service,
                 const struct addrinfo *restrict hints,
@@ -89,10 +91,10 @@ Al curioso:
 Modo de uso en detalle en prueba_addr_info.c.
 
 
-*** Se continúa obetniendo el nombre del host con gethostname, y posteriormente
-*** rellenando la estructura siguiente llamando a gethostbyname con el nombre
-*** de host obtenido:
-
+Se continúa obetniendo el nombre del host con gethostname, y posteriormente
+rellenando la estructura siguiente llamando a gethostbyname con el nombre
+de host obtenido:
+```
 ---- STRUCT HOSTENT -----
 
 struct hostent {
@@ -103,31 +105,30 @@ struct hostent {
     char **h_addr_list;       /* list of addresses */
 # define h_addr h_addr_list[0]
 };
-
-h_addr_list[0] debería contener el valor de la IP que esté usando el host.
+```
+`h_addr_list[0]` debería contener el valor de la IP que esté usando el host.
 Maravilloso sería que h_length fuese 4. Si es 6, decimos que no trabajamos 
 con ipv6 y listos. Pero este tipo de errores no deberían ocurrir.
 Podría haber más de una IP válida (multihost), pero nos da igual aquí.
 En todo caso, iterar h_addr_list hasta dar con un NULL o con una IPv4
 que nos sirva para bindear (ya veremos qué significa esto).
--------------------------
 
-*** las entradas de h_addr_list contendrán cada una una IP del host.
-*** En mi caso, me da la de loopback, 127.0.0.1, lo que tiene mucho 
-*** sentido porque estoy en una biblioteca pública y me jodo.
+las entradas de h_addr_list contendrán cada una una IP del host.
+En mi caso, me da la de loopback, 127.0.0.1, lo que tiene mucho 
+sentido porque estoy en una biblioteca pública y me jodo.
 
 COSAS UTILES :
-
+```
 struct sockaddr_in sa; // IPv4
 inet_pton(AF_INET, "10.12.110.57", &(sa.sin_addr)); // IPv4
+```
 
-==> escribirá la ip en sa.sin_addr en ipv4 sin que tengamos que matarnos.
+escribirá la ip en sa.sin_addr en ipv4 sin que tengamos que matarnos.
 la alternativa old school es llamar a
 inet_aton(const char* __ip, struct in_addr inp);
 La única razón por la que está obsoleta es porque no acepta AF_INET6.
 
 Fin de la introducción.
-
 
 Prepare to launch !
 
@@ -138,7 +139,7 @@ de argumento node a getaddrinfo me devuelve ip 127.0.1.1, y cuando le
 pongo NULL me pone 0.0.0.0). Detalles en prueba_addr_info.c.
 
 
-SOCKET CALL
+##SOCKET CALL
 
 int socket(int domain, int type, int protocol);
 
