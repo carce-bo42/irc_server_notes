@@ -285,5 +285,35 @@ int main(void)
 }
 ```
 
+Este `new_fd` se convierte en el famoso socket tal y como lo conocemos, en el que las llamadas de `send()`y `recv()`podrán suceder para que cliente y servidor se comuniquen. 
+
+Es importante saber que `accept()` devuelve un fd por **conexión** y no por llamada. El programa se quedará colgado en la llamada a `accept()` hasta que llegue una conexión y entonces sea cuando devuelva el fd y el código siga. Para llevar un servidor, el `accept()`deberá estar en un bucle para gestionar todas las conexiones entrantes. No se menciona qué pasa cuando recibes más conexiones que las que hemos configurado en `listen()`.  Como todo en esta vida, depende. [Aquí](https://stackoverflow.com/questions/37609951/why-i-dont-get-an-error-when-i-connect-more-sockets-than-the-argument-backlog-g) y [aquí](https://stackoverflow.com/questions/10002868/what-value-of-backlog-should-i-use#:~:text=Basically%2C%20what%20the%20listen(),passing%20that%20is%20generally%20safe.) lo que sale en google cuando lo pregunto. 
+
+## SEND / RECV
+
+Una vez se tiene el famoso socketfd respuesta de `accept()`, se pueden invocar las siguientes llamadas. De forma absolutamente coherente, `send()`envía y `recv()` recibe.
+
+```
+    int send(int sockfd, const void *msg, int len, int flags);
+```
+
+El documento del que saco todo esto me dice que setee flags a 0. Y que si no me quedo tranquilo me lea el man. Me quedo con ponerlo a cero. El caso es que `send()` escribe (y envía)  `len` bytes de `msg` al socketfd que tengamos. Interesante es que por la parte del cliente, le basta con usar el mismo socket que usó para hacer `connect()`. El servidor lee del socketfd respuesta de `accept()`, y el cliente al único socket que tiene.
+
+Para la función `recv()` se tiene:
+
+```
+    int recv(int sockfd, void *buf, int len, int flags);
+```
+
+Una vez más, flags a 0. Y sino man. Lee un máximo de `len` bytes de sockfd y los escribe en `buf`. Igual que la función `read()`, devuelve el número de bytes leídos. `recv()` puede también devolver 0. Esto sólo sucede cuando el lado remoto ha cerrado la conexión.
+
+Me surjen dudas como qué pasa si llamo a recv sobre un socket en el que el lado remoto no ha escrito nada. Se queda igual que `accept()` cuando no le entran conexiones? Suficentenpor hoy.
+
+Ambas funciones devuelven -1 en caso de error.
+
+
+
+
+
  
 
