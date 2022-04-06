@@ -1,23 +1,22 @@
 **Disclaimer**: La siguiente información aplica para IPv4, y algunas cosas también para IPv6.
 Pero yo no usaría estas notas para hacer nada en IPv6, si acaso referenciar
 el [documento](http://beej.us/guide/bgnet/html/) del que salen estas notas.
-Cualquier suggestion es bienvenido, recordermos: escribo esto para tener un sitio
+Cualquier suggestion es bienvenida, recordermos: escribo esto para tener un sitio
 al que venir cuando no tenga ni idea de qué hace mi servidor irc. También
 está en castellano porque para hacerlo en inglés ya estan las notas que referencio.
 
-                    #  I N T R O D U C C I O N 
+# I N T R O D U C C I O N 
 
-##STRUCTS:
+## STRUCTS
 
 Un socket es simplemente un file descriptor. Tiene un int asociado como
 cualquier otro fd, pero tiene la particularidad de que para
 escribir/leer a/de él, es muy recomendable usar send/recv que no
 write/read. Se entenderá más adelante por qué.
 
-La siguiente estructura se usa para tener a mano las socket address 
-structs a la hora de usarlas secuentemente.
+La siguiente estructura se usa para tener a mano las socket address structs a la hora de usarlas secuentemente. Se llama struct addrinfo, struct addrinfo lector, lector struct addrinfo.
 ```
---- STRUCT ADDRINFO -----
+
 struct addrinfo {
     int              ai_flags;     // AI_PASSIVE, AI_CANONNAME, etc.
     int              ai_family;    // AF_INET, AF_INET6, AF_UNSPEC
@@ -29,28 +28,7 @@ struct addrinfo {
 
     struct addrinfo *ai_next;      // linked list, next node
 };
-
-    ---- STRUCT SOCKADDR -----
-    
-    struct sockaddr {
-        unsigned short    sa_family;    // address family, AF_xxx
-        char              sa_data[14];  // 14 bytes of protocol address
-    };
-    ---------------------------
-
-    Y esta struct sockaddr puede usarse como struct sockaddr_in y viceversa :
-
-    ---- STRUCT SOCKADDR IN -----
-
     (sin stands for socket internet).
-
-    // (IPv4 only--see struct sockaddr_in6 for IPv6)
-    struct sockaddr_in {
-        short int          sin_family;  // Address family, AF_INET
-        unsigned short int sin_port;    // Port number
-        struct in_addr     sin_addr;    // Internet address
-        unsigned char      sin_zero[8]; // Same size as struct sockaddr
-    };
 
     sin_zero es para igualar el tamaño de esta estructura al de 
     struct sockaddr, así que debería hacerse un memset a ceros de sus 8 bytes.
@@ -67,20 +45,49 @@ struct addrinfo {
 ------------------- 
 ```
 
+Donde structr sockaddr es:
+
+```
+    struct sockaddr {
+        unsigned short    sa_family;    // address family, AF_xxx
+        char              sa_data[14];  // 14 bytes of protocol address
+    };
+```
+
+Y esta struct sockaddr puede usarse como struct sockaddr_in y viceversa ('sin' viene de socket internet). 
+
+```
+    // (IPv4 only--see struct sockaddr_in6 for IPv6)
+    struct sockaddr_in {
+        short int          sin_family;  // Address family, AF_INET
+        unsigned short int sin_port;    // Port number
+        struct in_addr     sin_addr;    // Internet address
+        unsigned char      sin_zero[8]; // Same size as struct sockaddr
+    };
+```
+
+sin_zero es para igualar el tamaño de esta estructura al de struct sockaddr, así que debería hacerse un memset a ceros de sus 8 bytes. Esto que parece tan raro es coherente con el "usarse como" que he dicho antes. Con ello, me refiero a que este código es perfectamente válido, y es en parte gracias a este sin_zero[8]:
+
+```
+    struct addrinfo *servinfo;
+    // ... 
+    struct sockaddr_in *addr_in = (struct sockaddr_in *)servinfo->ai_addr;
+    printf("addr_in : [%s]\n", inet_ntoa(addr_in->sin_addr));
+```
+
 El procedimiento a seguir es rellenar addrinfo con lo que necesitemos, y
 después llamar a getaddrinfo():
 
+```
 int getaddrinfo(const char *restrict node, const char *restrict service,
                 const struct addrinfo *restrict hints,
                 struct addrinfo **restrict res);
+```
 
-node: "www.example.com" o dirección ip. Aquí se le debería poner el
-hostname, obtenido a través de gethostname().
-service: el número de puerto en el que queremos el socket. Literalmente
-enchufar "6667" y la función se encarga del resto.
+node: "www.example.com" o dirección ip. Aquí se le debería poner el hostname, obtenido a través de gethostname().
+service: el número de puerto en el que queremos el socket. Literalmente enchufar "6667" y la función se encarga del resto.
 
-Descripción: Aloja un puntero a una nueva struct addrinfo con un node por
-direccion válida del host que le pasemos, en el puerto que le pasemos.
+Descripción: Aloja un puntero a una nueva struct addrinfo con un node por direccion válida del host que le pasemos, en el puerto que le pasemos. Devuelve 0 si todo va bien. 
 
 Al curioso:
  - por qué struct addrinfo es una lista ???? toma link :
@@ -90,10 +97,8 @@ Al curioso:
 
 Modo de uso en detalle en prueba_addr_info.c.
 
+Se continúa obetniendo el nombre del host con gethostname, y posteriormente rellenando la estructura siguiente llamando a gethostbyname con el nombre de host obtenido:
 
-Se continúa obetniendo el nombre del host con gethostname, y posteriormente
-rellenando la estructura siguiente llamando a gethostbyname con el nombre
-de host obtenido:
 ```
 ---- STRUCT HOSTENT -----
 
@@ -106,40 +111,32 @@ struct hostent {
 # define h_addr h_addr_list[0]
 };
 ```
-`h_addr_list[0]` debería contener el valor de la IP que esté usando el host.
-Maravilloso sería que h_length fuese 4. Si es 6, decimos que no trabajamos 
-con ipv6 y listos. Pero este tipo de errores no deberían ocurrir.
-Podría haber más de una IP válida (multihost), pero nos da igual aquí.
-En todo caso, iterar h_addr_list hasta dar con un NULL o con una IPv4
+`h_addr_list[0]` debería contener el valor de la IP que esté usando el host. Maravilloso sería que h_length fuese 4. Si es 6, decimos que no trabajamos con ipv6 y listos. Pero este tipo de errores no deberían ocurrir. Podría haber más de una IP válida (multihost), pero nos da igual aquí. En todo caso, iterar h_addr_list hasta dar con un NULL o con una IPv4
 que nos sirva para bindear (ya veremos qué significa esto).
 
-las entradas de h_addr_list contendrán cada una una IP del host.
-En mi caso, me da la de loopback, 127.0.0.1, lo que tiene mucho 
-sentido porque estoy en una biblioteca pública y me jodo.
+Las entradas de h_addr_list contendrán cada una una IP del host. En mi caso, me da la de loopback, 127.0.0.1, lo que tiene mucho sentido porque estoy en una biblioteca pública y me jodo.
 
-COSAS UTILES :
+## COSAS UTILES :
+
 ```
 struct sockaddr_in sa; // IPv4
 inet_pton(AF_INET, "10.12.110.57", &(sa.sin_addr)); // IPv4
 ```
 
-escribirá la ip en sa.sin_addr en ipv4 sin que tengamos que matarnos.
-la alternativa old school es llamar a
-inet_aton(const char* __ip, struct in_addr inp);
+escribirá la ip en sa.sin_addr en ipv4 sin que tengamos que matarnos. Recordemos que struct sockaddr_in por mucha struct que sea es un 4-byte int. 
+
+La alternativa old school es llamar a 
+```
+ inet_aton(const char* __ip, struct in_addr inp);
+```
+
 La única razón por la que está obsoleta es porque no acepta AF_INET6.
 
-Fin de la introducción.
+# FUNCTIONES SOCKET RELATED 
 
-Prepare to launch !
+Con getaddrinfo, tenemos todo lo que necesitamos, dado un hostname y un puerto. Si no tenemos un hostname, a veces el firewall nos mandará a la mierda (es el caso de la biblioteca, que cuando le pongo "PC-CARCE" de argumento node a getaddrinfo me devuelve ip 127.0.1.1, y cuando le pongo NULL me pone 0.0.0.0). Detalles en prueba_addr_info.c.
 
-- Con getaddrinfo, tenemos todo lo que necesitamos, dado un hostname
-y un puerto. Si no tenemos un hostname, a veces el firewall nos mandará
-a la mierda (es el caso de la biblioteca, que cuando le pongo "PC-CARCE"
-de argumento node a getaddrinfo me devuelve ip 127.0.1.1, y cuando le
-pongo NULL me pone 0.0.0.0). Detalles en prueba_addr_info.c.
-
-
-##SOCKET CALL
+## SOCKET CALL
 
 int socket(int domain, int type, int protocol);
 
@@ -159,9 +156,9 @@ llamada determina el protocolo dado el tipo.
 Hasta ahora, lo que sabemos es que dado un host (ya sea en forma de nombre, de IP
 o de dominio) y un puerto:
 
-{
-
+```
 #define CATASTROFE 1
+
 int status;
 struct addrinfo hints;
 struct addrinfo *servinfo;
@@ -181,8 +178,7 @@ if (getaddrinfo(host, port, &hints, &servinfo) != 0)
 int socketfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
 if (socketfd == -1)
     return CATASTROFE;
-
-}
+```
 
 Con el socketfd se tiene por tanto el fd necesario para proceder
 con las siguientes llamadas al sistema.
@@ -198,7 +194,7 @@ Aquí es donde se le dice qué puerto es el que va a tener asociado ese
 socket. Que qué significa esto ? Ni idea, pero sí ha de sonar que
 las IP's y los puertos van bastante de la mano cuando se trata de servidores,
 y como bien he mencionado antes, al socket de momento no se le ha dicho
-nada sobre el puerto.
+nada sobre el puerto. Se utiliza, por tanto, la siguiente llamada a sistema para hablar con bind
 
 
 
