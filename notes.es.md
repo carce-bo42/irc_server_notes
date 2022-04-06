@@ -136,3 +136,68 @@ y un puerto. Si no tenemos un hostname, a veces el firewall nos mandará
 a la mierda (es el caso de la biblioteca, que cuando le pongo "PC-CARCE"
 de argumento node a getaddrinfo me devuelve ip 127.0.1.1, y cuando le
 pongo NULL me pone 0.0.0.0). Detalles en prueba_addr_info.c.
+
+
+SOCKET CALL
+
+int socket(int domain, int type, int protocol);
+
+El dominio es para decir qué tipo de IP se utilizará. Para IPv4, PF_INET y
+para IPv6 PF_INET6. Por qué PF en vez de AF como sucede con la sin_family 
+en struct sockaddr_in ? Pues como todas las cosas que son raras, por razones
+históricas. El resumen es que se quiso en un principio tener varios 
+Protocol Families (PF) por cada Adress Family (AF), pero nunca se consiguió
+y actualmente el mapeo AF PF es uno a uno.
+
+Llamas a socket, le dices si PF_INET o PF_INET6, y luego qué ? El tipo. 
+SOCK_DGRAM para UDP y SOCK_STREAM para TCP. El protocolo ? En mi caso, que
+estoy leyendo una guía para entender todo esto, no debería especificarlo
+porque se me escapa muchísimo (pongo 0 y listos). Si se setea a 0, la propia
+llamada determina el protocolo dado el tipo.
+
+Hasta ahora, lo que sabemos es que dado un host (ya sea en forma de nombre, de IP
+o de dominio) y un puerto:
+
+{
+
+#define CATASTROFE 1
+int status;
+struct addrinfo hints;
+struct addrinfo *servinfo;
+
+memset(&hints, 0, sizeof hints);
+hints.ai_family = AF_INET;
+hints.ai_socktype = SOCK_STREAM;
+
+// ej.
+char* host = "1.1.1.1"; // o "www.example.com" o "PC-PEPITO"
+char* port = "9999";
+
+// creamos la struct addrinfo a partir de hints 
+if (getaddrinfo(host, port, &hints, &servinfo) != 0)
+    return CATASTROFE;
+
+int socketfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+if (socketfd == -1)
+    return CATASTROFE;
+
+}
+
+Con el socketfd se tiene por tanto el fd necesario para proceder
+con las siguientes llamadas al sistema.
+
+Es interesante ver que la llamada a socket sólo tiene, 
+parece ser, 2 parámetros. Uno que da el tipo de socket, y otro otra
+IP (de verdad, suda del protocolo).
+Nada más. Sobre ese fd el sistema no sabe absolutamente nada más.
+
+BIND CALL
+
+Aquí es donde se le dice qué puerto es el que va a tener asociado ese
+socket. Que qué significa esto ? Ni idea, pero sí ha de sonar que
+las IP's y los puertos van bastante de la mano cuando se trata de servidores,
+y como bien he mencionado antes, al socket de momento no se le ha dicho
+nada sobre el puerto.
+
+
+
