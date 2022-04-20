@@ -313,7 +313,7 @@ Para la función `recv()` se tiene:
 
 Una vez más, flags a 0. Y sino man. Lee un máximo de `len` bytes de sockfd y los escribe en `buf`. Igual que la función `read()`, devuelve el número de bytes leídos. `recv()` puede también devolver 0. Esto sólo sucede cuando el lado remoto ha cerrado la conexión.
 
-Me surjen dudas como qué pasa si llamo a recv sobre un socket en el que el lado remoto no ha escrito nada. Se queda igual que `accept()` cuando no le entran conexiones? Suficentenpor hoy.
+Me surjen dudas como qué pasa si llamo a recv sobre un socket en el que el lado remoto no ha escrito nada. Se queda igual que `accept()` cuando no le entran conexiones? **Respuesta**: He leífo a [éste vato](https://stackoverflow.com/questions/59326605/how-to-skip-recv-function-when-no-data-is-sent) y parece ser que en efecto  el llamador se queda colgado hasta que hay datos por leer. Aunque parece ser que es buena praxis no llamar a `recv()` a menos que se tenga la total seguridad de que en el socket hay datos. 
 
 Ambas funciones devuelven -1 en caso de error.
 
