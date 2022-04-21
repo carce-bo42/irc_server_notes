@@ -1,3 +1,7 @@
+
+
+
+
 **Disclaimer**: La siguiente información aplica para IPv4, y algunas cosas también para IPv6.
 Pero yo no usaría estas notas para hacer nada en IPv6, si acaso referenciar
 el [documento](http://beej.us/guide/bgnet/html/) del que salen estas notas. También he leído [este](https://docs.oracle.com/cd/E19620-01/805-4041/6j3r8iu2l/index.html).
@@ -343,5 +347,54 @@ Puesto que un socket UDP no se conecta y el servidor ni listen ni accept tampoco
 
 `how` puede valer 0, 1 o 2. 0 singificará que no reciba más mensajes. 1 que no enviará más mensajes. Y 2 es 0 y 1 con la diferencia de que no cerrará el fd. Acerca de la diferencia entre llamar a shutdown con `how=2` o `close()` hay muchísimo detalle con respecto al uso de uno u otro. No en el archivo que me leo, sino en internet. [Aquí](https://stackoverflow.com/questions/4160347/close-vs-shutdown-socket) hay un individuo en stackoverflow que en su día se preguntó lo mismo, al que le respondieron con puntos y comas.
 
+## FUNCIONES QUE BLOQUEAN
 
+Aquí el documento parece responder esas dudas que me han ido surgiendo sobre algunas funciones en determinadas condiciones. Llama bloqueo a lo que yo he llamado hasta ahora "quedarse colgado". Lo reitero porque creo que es importante tenerlas agrupadas en un mismo bloque de texto. 
 
+ Llamar a `recv()` o `recvfrom()` sobre un socket que no tiene datos, bloquea el programa hasta que los tiene. Llamar a `accept()` cuando hayamos seteado un socket para que escuche (con `listen()`), bloqueará el programa hasta que entre una conexión. 
+
+Esto sucede porque al crear un socket descriptor con `socket()`, el kernel le atribuye esta propiedad. Para que un socket no sea 'blocking', podemos usar la siguiente llamada a `fcntl()` (de hecho esta hasta la dejan usar en el subject).
+
+```
+#include <unistd.h>
+#include <fcntl.h>
+
+sockfd = socket(PF_INET, SOCK_STREAM, 0);
+fcntl(sockfd, F_SETFL, O_NONBLOCK);
+```
+
+Haciendo esto,  cuando se llame a alguna función de las anteriormente mencionadas en condiciones de que bloquee, devolverá -1 y escribirá en **errno** `EAGAIN` o `EWOULDBLOCK`. Es recomendable checkear las dos porque que errno valga una u otra depende del sistema. Pero estar haciendo esto es contínuamente hacer llamadas al sistema (asumo que de `accept()`) junto con comprobaciones sobre el errno constantes. Es como programar al asno en Shrek preguntando si han llegado ya a Muy Muy Lejano.
+
+Se introduce para utilizar los recursos del ordenador de forma más eficiente la llamada `poll()`.
+
+## POLL
+
+Trabaja con una estructura llamada `pollfd` que tiene la siguiente pinta:
+
+    struct pollfd {
+        int fd;         // the socket descriptor
+        short events;   // bitmap of events we're interested in
+        short revents;  // when poll() returns, bitmap of events that occurred
+    };
+
+El fd es, efectivamente, el socket y events/revents es como decirle qué tendrá que vigilarse respecto a ese socket y cuál de esas cosas que le hemos dicho que vigile se han detectado en el socket (después de la llamada a `poll()`). Tanto events como revents son shorts y se interpretan como flags escritas en 16 bits. 7 de esos 16 bits que componen un short (en una arquitectura moderna de 64-bits) indican una flag distinta. La razón por la que aún así se escoje un short en vez de un char puede deberse al [struct padding](https://stackoverflow.com/questions/4306186/structure-padding-and-packing), o simplemente para tener donde cojer en caso de inventarse nuevos tipos de eventos. Quizá una combinación de las dos. 
+
+```
+#include <poll.h>
+int poll(struct pollfd fds[], nfds_t nfds, int timeout);
+```
+
+La primera entrada es el array con cada estructura de cada socket, `nfds` es el número de `struct pollfd` que tiene el array `fds[]` y `timeout` es, en milisegundos, el máximo tiempo que queremos que se espere a que un evento suceda. 
+
+Los eventos que nos interesan son los siguientes (copypaste):
+
+| Macro     | Description                                                  |
+| --------- | ------------------------------------------------------------ |
+| `POLLIN`  | Alert me when data is ready to `recv()` on this socket.      |
+| `POLLOUT` | Alert me when I can `send()` data to this socket without blocking. |
+
+`POLLIN`, la que más usaremos y la más fácil de entender. `POLLOUT`, en cambio, es más extraña. Un ejemplo muy bueno sobre la utilización de ambos flags (que sirve para entender `POLLOUT`) es [este link](https://stackoverflow.com/questions/12170037/when-to-use-the-pollout-event-of-the-poll-c-function). Aunque uno puede escribir un servidor IRC sin necesidad de utilizarlo, sin duda.
+
+Cuando llamamos a `poll()` éste devuelve *el número de sockets en `fds[]` en los que se ha dado uno o más de los eventos indicados en cada socket fd*. Esto es, si asigno a `fds[0].events = POLLIN` y `fds[1].events = POLLOUT` y se da que -el fd- 0 recibe datos y el 1 está listo para escribir, poll devolverá 2. Y si sucede que -el fd- 0 no recibe datos y 1 no está listo para escribir, devolverá 0. Se entiende supongo. Que al final solo se usa `POLLIN` y el retorno se resume al número total de sockets que tienen datos para leer ? Sí. Pero me daría por culo decir eso y quedarme tan tranquilo. 
+
+Cuando `poll()` retorna, entonces, me puto voy porque la biblioteca cierra a las 9:30 XDDD nosvemos
