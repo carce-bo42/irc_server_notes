@@ -397,4 +397,4 @@ Los eventos que nos interesan son los siguientes (copypaste):
 
 Cuando llamamos a `poll()` éste devuelve *el número de sockets en `fds[]` en los que se ha dado uno o más de los eventos indicados en cada socket fd*. Esto es, si asigno a `fds[0].events = POLLIN` y `fds[1].events = POLLOUT` y se da que -el fd- 0 recibe datos y el 1 está listo para escribir, poll devolverá 2. Y si sucede que -el fd- 0 no recibe datos y 1 no está listo para escribir, devolverá 0. Se entiende supongo. Que al final solo se usa `POLLIN` y el retorno se resume al número total de sockets que tienen datos para leer ? Sí. Pero me daría por culo decir eso y quedarme tan tranquilo. 
 
-Cuando `poll()` retorna, entonces, me puto voy porque la biblioteca cierra a las 9:30 XDDD nosvemos
+Cuando `poll()` retorna, entonces, prueba .
