@@ -377,7 +377,7 @@ Trabaja con una estructura llamada `pollfd` que tiene la siguiente pinta:
         short revents;  // when poll() returns, bitmap of events that occurred
     };
 
-El fd es, efectivamente, el socket y events/revents es como decirle qué tendrá que vigilarse respecto a ese socket y cuál de esas cosas que le hemos dicho que vigile se han detectado en el socket (después de la llamada a `poll()`). Tanto events como revents son shorts y se interpretan como flags escritas en 16 bits. 7 de esos 16 bits que componen un short (en una arquitectura moderna de 64-bits) indican una flag distinta. La razón por la que aún así se escoje un short en vez de un char puede deberse al [struct padding](https://stackoverflow.com/questions/4306186/structure-padding-and-packing), o simplemente para tener donde cojer en caso de inventarse nuevos tipos de eventos. Quizá una combinación de las dos. 
+El fd es, efectivamente, el socket y events/revents es como decirle qué tendrá que vigilarse respecto a ese socket y cuál de esas cosas que le hemos dicho que vigile (al kernel) se han detectado en el socket (después de la llamada a `poll()`). Tanto events como revents son shorts y se interpretan como flags escritas en 16 bits. 7 de esos 16 bits que componen un short (en una arquitectura moderna de 64-bits) indican una flag distinta. La razón por la que aún así se escoje un short en vez de un char puede deberse al [struct padding](https://stackoverflow.com/questions/4306186/structure-padding-and-packing), o simplemente para tener donde cojer en caso de inventarse nuevos tipos de eventos.  Quizá una combinación de las dos. 
 
 ```
 #include <poll.h>
@@ -395,6 +395,27 @@ Los eventos que nos interesan son los siguientes (copypaste):
 
 `POLLIN`, la que más usaremos y la más fácil de entender. `POLLOUT`, en cambio, es más extraña. Un ejemplo muy bueno sobre la utilización de ambos flags (que sirve para entender `POLLOUT`) es [este link](https://stackoverflow.com/questions/12170037/when-to-use-the-pollout-event-of-the-poll-c-function). Aunque uno puede escribir un servidor IRC sin necesidad de utilizarlo, sin duda.
 
-Cuando llamamos a `poll()` éste devuelve *el número de sockets en `fds[]` en los que se ha dado uno o más de los eventos indicados en cada socket fd*. Esto es, si asigno a `fds[0].events = POLLIN` y `fds[1].events = POLLOUT` y se da que -el fd- 0 recibe datos y el 1 está listo para escribir, poll devolverá 2. Y si sucede que -el fd- 0 no recibe datos y 1 no está listo para escribir, devolverá 0. Se entiende supongo. Que al final solo se usa `POLLIN` y el retorno se resume al número total de sockets que tienen datos para leer ? Sí. Pero me daría por culo decir eso y quedarme tan tranquilo. 
+Cuando llamamos a `poll()` éste devuelve *el número de sockets en `fds[]` en los que se ha dado uno o más de los eventos indicados en cada socket fd*. Esto es, si asigno a `fds[0].events = POLLIN` y `fds[1].events = POLLOUT` y se da que -el fd- 0 recibe datos y el 1 está listo para escribir, poll devolverá 2. Y si sucede que -el fd- 0 no recibe datos y 1 no está listo para escribir, devolverá 0. Se entiende supongo. Que al final solo se usa `POLLIN` y el retorno se resume al número total de sockets que tienen datos para leer ? Sí. Pero me daría por culo decir eso y quedarme tan tranquilo.
 
-Cuando `poll()` retorna, entonces, prueba .
+Existen tres eventos más que por mucho que no indiquemos en `events` serán procesados, y estos son:
+
+| MACRO            DESCRIPTION                                 |      |
+| ------------------------------------------------------------ | ---- |
+| `POLLERR`            Error                                   |      |
+| `POLLHUP `            El otro extremo ha cerrado la conexión. |      |
+| `POLLNVAL`         El fd no está abierto. No cerrar un fd después de recibir este parámetro. |      |
+
+La descripción de estas 3 otras opciones la he encontrado [aquí](https://stackoverflow.com/questions/24791625/how-to-handle-the-linux-socket-revents-pollerr-pollhup-and-pollnval). Y [aquí](https://www.ibm.com/docs/en/zos/2.2.0?topic=functions-poll-monitor-activity-file-descriptors-message-queues) explica bastante bien algunas de las macros (esta es de IBM en vez de SO).
+
+## SELECT
+
+No explicaré qué hace `select` porque por más que busco sólo encuentro que `poll` es más eficiente que `select`. Y es que `select` consigue lo mismo pero teniendo que reescribir todo el array de fd's cada vez que se itera. Mis referencias son [éste artículo](https://daniel.haxx.se/docs/poll-vs-select.html#:~:text=select()%20only%20uses%20(at,more%20over%20to%20kernel%20space)) y [éste vídeo](https://www.youtube.com/watch?v=dEHZb9JsmOU) (el vídeo contiene además ejemplos de código muy útiles).
+
+De todas formas, no está de más decir que en aplicaciones reales ni la una ni la otra se utiliza. Se utilizan librerías con event handlers como por ejemplo [libevent](https://libevent.org/). Hay muchas más, pero no quería dejar esto así como si los servidores de Google estuviesen escritos con `poll`.
+
+
+
+
+
+
+
