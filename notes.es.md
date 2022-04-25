@@ -146,7 +146,7 @@ El dominio es para decir qué tipo de IP **local** se utilizará. Para IPv4, `PF
 Llamas a socket, le dices si `PF_INET` o `PF_INET6`, y luego qué ? El tipo. `SOCK_DGRAM` para UDP y `SOCK_STREAM` para TCP. El protocolo ? En mi caso, que estoy leyendo una guía para entender todo esto, no debería especificarlo
 porque se me escapa muchísimo. Lo bueno es que si se procede con `getaddrinfo` hay una entrada en la estructura que devuelve para este parámetro, que será coherente con el tipo `sin_family`que le hayamos indicado. 
 
-Hasta ahora, lo que sabemos es que dado un host (ya sea en forma de nombre, de IP o de dominio) y un puerto, con este código consigo tener un socket asociado a dicha IP, del tipo que le digamos:
+Hasta ahora, lo que sabemos es que dado un host (ya sea en forma de nombre, de IP o de dominio) y un puerto, con este código consigo abrir un socket del tipo que le digamos:
 
 ```
 #define CATASTROFE 1
@@ -174,14 +174,13 @@ if (socketfd == -1)
 
 Con el socketfd se tiene por tanto el fd necesario para proceder con las siguientes llamadas al sistema.
 
-Es interesante ver que la llamada a socket sólo tiene, parece ser, 2 parámetros. Uno que da el tipo de socket, y otro otra
-IP (de verdad, suda del protocolo). Nada más. Sobre ese fd el sistema no sabe absolutamente nada más. 
+Es interesante ver que la llamada a socket sólo tiene, parece ser, 2 parámetros. Uno que da la address family (IPv4 o IPv6) y el otro el tipo de socket. De momento no conoce el par IP:puerto de nuestro ordenador al cual queremos asociarlo.
 
 ## BIND 
 
-Aquí es donde se le dice qué puerto **local** es el que va a tener asociado ese socket. Que qué significa esto ? Ni idea, pero como bien he mencionado antes, al socket de momento no se le ha dicho nada sobre el puerto. 
+Aquí es donde se le dice qué puerto **local** y qué IP **local**  son las que va a tener asociado ese socket. Que qué significa esto ? Ni idea, pero como bien he mencionado antes, al socket de momento no se le ha dicho nada sobre ambas.
 
-Se utiliza, por tanto, la siguiente llamada a sistema para ligar ese socket que ya tiene la IP que le hemos dado al puerto que le demos:
+Se utiliza, por tanto, la siguiente llamada a sistema para ligar ese socket al par IP:puerto.
 
 ```
     #include <sys/types.h>
@@ -190,7 +189,7 @@ Se utiliza, por tanto, la siguiente llamada a sistema para ligar ese socket que 
     int bind(int sockfd, struct sockaddr *my_addr, int addrlen);
 ```
 
-Donde `sockfd` es el fd del socket obtenido anteriormente, y `my_addr`  y `addr_len` deberían ser las entrada `ai_addr` y `ai_addrlen`, respectivamente, de nuestra estructura devuelta por `getaddrinfo`.  De esta forma, socket y bind se llaman con la misma IP, y con la última llamada se añade el puerto. 
+Donde `sockfd` es el fd del socket obtenido anteriormente, y `my_addr`  y `addr_len` deberían ser las entrada `ai_addr` y `ai_addrlen`, respectivamente, de nuestra estructura devuelta por `getaddrinfo`.  
 
 Importante saber que los puertos por debajo del 1024 están o suelen estar reservados para protocolos específicos. [Aquí](https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers) hay una lista con toda la información necesaria sobre el tema. 
 
@@ -216,7 +215,7 @@ if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
 } 
 ```
 
-Importante decir que `bind()` no es importante a menos que queramos especificar el puerto **local** con el que trabaje el socket. Si lo que queremos es conectarnos a un servidor, `connect()` se encargará de bindear por debajo a un puerto no usado de nuestra máquina para hablar con dicho servidor. 
+Importante decir que `bind()` no es importante a menos que queramos especificar el par IP:puerto **local** con el que trabaje el socket. Si lo que queremos es conectarnos a un servidor, `connect()` se encargará de bindear por debajo a un puerto no usado de nuestra máquina para hablar con dicho servidor. 
 
 ## CONNECT 
 
